@@ -175,7 +175,7 @@ impl Into<u16> for KemKeyType {
     }
 }
 
-/// Asymmetric key types
+/// Symmetric key types
 #[derive(Debug, PartialEq, Eq, Zeroize, Clone, Copy)]
 pub enum SymmetricKeyType {
     /// An AES 128 secret
