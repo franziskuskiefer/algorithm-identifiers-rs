@@ -41,7 +41,7 @@ pub enum KemKeyType {
     /// ECDH Curve25519 key
     X25519 = 29,
 
-    /// ECDH Curve25519 key
+    /// ECDH Curve448 key
     X448 = 30,
 
     /// ECDH NIST P256 key (secp256r1)
