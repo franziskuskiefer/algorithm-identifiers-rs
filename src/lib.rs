@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, io::Write, usize};
 
-use tls_codec::{Deserialize, Serialize, TlsDeserialize, TlsSerialize, TlsSize};
+use tls_codec::{Deserialize, Serialize, Size, TlsDeserialize, TlsSerialize, TlsSize};
 use zeroize::Zeroize;
 
 const U32_LEN: usize = std::mem::size_of::<u32>();
@@ -12,7 +12,7 @@ const U32_LEN: usize = std::mem::size_of::<u32>();
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[derive(Debug, PartialEq, Eq, Zeroize, Clone, Copy, TlsSerialize, TlsDeserialize)]
+#[derive(Debug, PartialEq, Eq, Zeroize, Clone, Copy, TlsSerialize, TlsDeserialize, TlsSize)]
 #[repr(u16)]
 pub enum SignatureKeyType {
     /// EdDSA Curve25519 key
@@ -35,7 +35,7 @@ pub enum SignatureKeyType {
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[derive(Debug, PartialEq, Eq, Zeroize, Clone, Copy, TlsSerialize, TlsDeserialize)]
+#[derive(Debug, PartialEq, Eq, Zeroize, Clone, Copy, TlsSerialize, TlsDeserialize, TlsSize)]
 #[repr(u16)]
 pub enum KemKeyType {
     /// ECDH Curve25519 key
@@ -82,7 +82,7 @@ impl tls_codec::Serialize for AsymmetricKeyType {
     fn tls_serialize<W: Write>(
         &self,
         writer: &mut W,
-    ) -> core::result::Result<(), tls_codec::Error> {
+    ) -> core::result::Result<usize, tls_codec::Error> {
         writer.write(match self {
             // XXX: pull out the outer type ser/de
             AsymmetricKeyType::SignatureKey(_) => &[0],
@@ -117,11 +117,11 @@ impl Deserialize for AsymmetricKeyType {
     }
 }
 
-impl TlsSize for AsymmetricKeyType {
-    fn serialized_len(&self) -> usize {
+impl Size for AsymmetricKeyType {
+    fn tls_serialized_len(&self) -> usize {
         1 + match self {
-            AsymmetricKeyType::SignatureKey(k) => k.serialized_len(),
-            AsymmetricKeyType::KemKey(k) => k.serialized_len(),
+            AsymmetricKeyType::SignatureKey(k) => k.tls_serialized_len(),
+            AsymmetricKeyType::KemKey(k) => k.tls_serialized_len(),
         }
     }
 }
@@ -191,9 +191,9 @@ pub enum SymmetricKeyType {
     Any(u16),
 }
 
-impl TlsSize for SymmetricKeyType {
+impl Size for SymmetricKeyType {
     #[inline]
-    fn serialized_len(&self) -> usize {
+    fn tls_serialized_len(&self) -> usize {
         U32_LEN
     }
 }
@@ -202,7 +202,7 @@ impl Serialize for SymmetricKeyType {
     fn tls_serialize<W: Write>(
         &self,
         writer: &mut W,
-    ) -> core::result::Result<(), tls_codec::Error> {
+    ) -> core::result::Result<usize, tls_codec::Error> {
         let self_u32: u32 = self.into();
         self_u32.tls_serialize(writer)
     }
@@ -278,6 +278,34 @@ pub enum AeadType {
     HpkeExport = 0xFFFF,
 }
 
+impl AeadType {
+    /// Get the tag size of the [`AeadType`] in bytes.
+    ///
+    /// Note that the function returns `0` for unknown lengths such as the
+    /// [`AeadType::HpkeExport`] type.
+    pub const fn tag_size(&self) -> usize {
+        match self {
+            AeadType::Aes128Gcm => 16,
+            AeadType::Aes256Gcm => 16,
+            AeadType::ChaCha20Poly1305 => 16,
+            AeadType::HpkeExport => 0,
+        }
+    }
+
+    /// Get the key size of the [`AeadType`] in bytes.
+    ///
+    /// Note that the function returns `0` for unknown lengths such as the
+    /// [`AeadType::HpkeExport`] type.
+    pub const fn key_size(&self) -> usize {
+        match self {
+            AeadType::Aes128Gcm => 16,
+            AeadType::Aes256Gcm => 32,
+            AeadType::ChaCha20Poly1305 => 32,
+            AeadType::HpkeExport => 0,
+        }
+    }
+}
+
 #[cfg_attr(
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
@@ -302,6 +330,28 @@ pub enum HashType {
     Sha3_512 = 0x0A,
     Shake_128 = 0x0B,
     Shake_256 = 0x0C,
+}
+
+impl HashType {
+    /// Returns the output size of a hash by [`HashType`].
+    ///
+    /// Note that it will return `0` for variable lenght output types such as shake.
+    #[inline]
+    pub const fn size(&self) -> usize {
+        match self {
+            HashType::Sha1 => 20,
+            HashType::Sha2_224 => 28,
+            HashType::Sha2_256 => 32,
+            HashType::Sha2_384 => 48,
+            HashType::Sha2_512 => 64,
+            HashType::Sha3_224 => 28,
+            HashType::Sha3_256 => 32,
+            HashType::Sha3_384 => 48,
+            HashType::Sha3_512 => 64,
+            HashType::Shake_128 => 0,
+            HashType::Shake_256 => 0,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Zeroize, Clone, Copy)]
