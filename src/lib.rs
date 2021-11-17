@@ -83,7 +83,7 @@ impl tls_codec::Serialize for AsymmetricKeyType {
         &self,
         writer: &mut W,
     ) -> core::result::Result<usize, tls_codec::Error> {
-        writer.write(match self {
+        writer.write_all(match self {
             // XXX: pull out the outer type ser/de
             AsymmetricKeyType::SignatureKey(_) => &[0],
             AsymmetricKeyType::KemKey(_) => &[1],
@@ -163,15 +163,15 @@ impl From<KemType> for AsymmetricKeyType {
     }
 }
 
-impl Into<u16> for SignatureKeyType {
-    fn into(self) -> u16 {
-        self as u16
+impl From<SignatureKeyType> for u16 {
+    fn from(val: SignatureKeyType) -> Self {
+        val as u16
     }
 }
 
-impl Into<u16> for KemKeyType {
-    fn into(self) -> u16 {
-        self as u16
+impl From<KemKeyType> for u16 {
+    fn from(val: KemKeyType) -> Self {
+        val as u16
     }
 }
 
@@ -220,6 +220,7 @@ impl Deserialize for SymmetricKeyType {
 
 impl SymmetricKeyType {
     /// Get the length of the secret.
+    #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
         match self {
             SymmetricKeyType::Aes128 => 16,
@@ -244,15 +245,15 @@ impl TryFrom<u32> for SymmetricKeyType {
     }
 }
 
-impl Into<u32> for &SymmetricKeyType {
-    fn into(self) -> u32 {
-        (*self).into()
+impl From<&SymmetricKeyType> for u32 {
+    fn from(val: &SymmetricKeyType) -> Self {
+        (*val).into()
     }
 }
 
-impl Into<u32> for SymmetricKeyType {
-    fn into(self) -> u32 {
-        match self {
+impl From<SymmetricKeyType> for u32 {
+    fn from(val: SymmetricKeyType) -> Self {
+        match val {
             SymmetricKeyType::Aes128 => 0,
             SymmetricKeyType::Aes256 => 1,
             SymmetricKeyType::ChaCha20 => 2,
